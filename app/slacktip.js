@@ -78,7 +78,7 @@ module.exports = function(lightning, lnd, db, slackConfig) {
 						reject(err);
 					});
 				} else {
-					if (identity.user.name && !user.identity.user.name) {
+					if (identity.user.name && (identity.user.name != user.identity.user.name)) {
 						user.identity.user.name = identity.user.name;
 						var update = { $set: user };
 						module.dbUpdateUser(slackId, update).then(function (result) {
@@ -185,7 +185,7 @@ module.exports = function(lightning, lnd, db, slackConfig) {
 										debug('targetUser', targetUser);
 										var tipResponse = {
 											"response_type": "in_channel",
-											"text": "A tip of " + array[1] + " satoshis has been delivered to @" + array[3],
+											"text": "A tip of " + array[1] + " satoshi" + ((array[1] > 1) ? "s" : "") + " has been delivered to @" + array[3],
 											"attachments": [
 												{
 													"text": "Thanx for supporting the <https://lnd-testnet-2.mably.com|Slack LN tipping bot>!"
@@ -230,6 +230,9 @@ module.exports = function(lightning, lnd, db, slackConfig) {
 										"response_type": "ephemeral",
 										"text": "Couldn't send tip, there are not enough funds available in your account.",
 										"attachments": [
+											{
+												"text": "You only have " + sourceUser.balance + " satoshi" + ((sourceUser.balance > 1) ? "s" : "") + " left in your tipping account."
+											},
 											{
 												"text": "You can deposit some funds by connecting to <https://lnd-testnet-2.mably.com|our website>."
 											}
@@ -341,6 +344,42 @@ module.exports = function(lightning, lnd, db, slackConfig) {
 		return promise;
 	}
 
+	module.withdrawFunds = function (user, payreq) {
+		var promise = new Promise(function (resolve, reject) {
+			lightning.decodePayReq({ pay_req: payreq }, function(err, response) {
+				if (err) {
+					logger.debug('DecodePayReq Error:', err);
+					err.error = err.message;
+					reject(err)
+				} else {
+					logger.debug('DecodePayReq:', response);
+					var amount = parseInt(response.num_satoshis);
+					if (amount > user.balance) {
+						reject("Withdrawal rejected, not enough funds in your account.");
+					} else {
+						module.dbWithdrawFunds(buildSlackId(user.identity), amount).then(function (result) {
+							var paymentRequest = { payment_request: payreq };
+							logger.debug("Sending payment", paymentRequest);
+							lightning.sendPaymentSync(paymentRequest, function(err, response) {
+								if (err) {
+									logger.debug('SendPayment Error:', err);
+									err.error = err.message;
+									reject(err)
+								} else {
+									logger.debug('SendPayment:', response);
+									resolve(response);
+								}
+							});
+						}, function (reason) {
+							reject(reason)
+						});
+					}
+				}
+			});
+		});
+		return promise;
+	}
+
 	module.dbAddInvoice = function(invoice) {
 		var promise = new Promise(function (resolve, reject) {
 			invoicesCol.insert([invoice], { w: 1 }, function (err, result) {
@@ -395,6 +434,24 @@ module.exports = function(lightning, lnd, db, slackConfig) {
 				} else {
 					logger.debug('dbUpdateUser DB update', result);
 					resolve(result);
+				}
+			});
+		});
+		return promise;
+	};
+
+	module.dbWithdrawFunds = function (slackId, amount) {
+		var promise = new Promise(function (resolve, reject) {
+			accountsCol.update({ slackid : slackId, balance: { $gt: amount } }, { $inc: { balance: -1 * amount } }, { w: 1 }, function (err, result) {
+				if (err) {
+					reject(err);
+				} else {
+					logger.debug('dbWithdrawFunds DB update', result);
+					if (result === 1) {
+						resolve(result);
+					} else {
+						reject("Withdrawal rejected, check available funds in your account.");
+					}
 				}
 			});
 		});

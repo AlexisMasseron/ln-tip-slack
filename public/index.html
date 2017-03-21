@@ -49,6 +49,7 @@
 	<script src="./js/controllers/slacktip/navbar.js"></script>
 	<script src="./js/controllers/slacktip/user.js"></script>
 	<script src="./js/controllers/slacktip/addinvoice.js"></script>
+	<script src="./js/controllers/slacktip/withdrawfunds.js"></script>
 	<script src="./js/controllers/slacktip/sendtip.js"></script>
 	<script src="./js/directives/slacktip/getuser.js"></script>
 	<script src="./js/services/slacktip/slacktip.js"></script>
@@ -72,6 +73,7 @@
 		<div id="navbar" class="navbar-collapse collapse" data-toggle="collapse" data-target=".navbar-collapse.in">
 		  <ul class="nav navbar-nav">
 			  <li><a href="#infos">Informations</a></li>
+			  <li><a href="/connect/slack">Slack Login</a></li>
 			  <li class="dropdown">
 				<a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Tools <span class="caret"></span></a>
 				<ul class="dropdown-menu">
@@ -95,12 +97,16 @@
 		<div class="col-sm-12">
 		  <div class="panel panel-default" ng-controller="UserCtrl">
 			<div class="panel-heading clearfix">
-			  <span class="panel-title">Compte utilisateur <i class="fa fa-spinner fa-spin" ng-show="spinner > 0"></i></span>
+				<span class="panel-title">Compte utilisateur <i class="fa fa-spinner fa-spin" ng-show="spinner > 0"></i></span>
+				<div class="btn-toolbar pull-right">
+					<button type="button" class="btn btn-default btn-xs" title="Refresh" aria-label="Refresh" ng-click="refresh()"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></button>
+				</div>
 			</div>
 			<div class="panel-body">
-				<p><a href="/connect/slack">Login via Slack</a></p>
+				<p ng-hide="info.slackid"><a href="/connect/slack">Login via Slack</a></p>
 				<p ng-show="info.slackid" ng-cloak><get-user info="info" /></p>
 				<button class="btn btn-default" type="button" ng-click="generateInvoice()" ng-show="info.slackid" ng-cloak>Deposit funds</button>
+				<button class="btn btn-default" type="button" ng-click="withdrawFunds()" ng-show="info.slackid" ng-cloak>Withdraw funds</button>
 			</div>
 		  </div>
 		</div><!-- /.col-sm-12 -->
